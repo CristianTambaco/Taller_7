@@ -129,6 +129,10 @@ export default function CrearRecetaScreen() {
         <Text style={globalStyles.textSecondary}>
           Crea una cuenta de chef para poder publicar recetas
         </Text>
+
+        <TouchableOpacity onPress={() => router.push("/(tabs)")}>
+            <Text style={styles.botonVolver}>← Volver</Text>
+        </TouchableOpacity>
       </View>
     );
   }
