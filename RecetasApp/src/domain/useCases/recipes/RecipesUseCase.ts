@@ -1,6 +1,12 @@
+// FILE: RecetasApp/src/domain/useCases/recipes/RecipesUseCase.ts
 import * as ImagePicker from "expo-image-picker";
+import { Camera } from "expo-camera"; // Importar Camera
+import * as FileSystem from 'expo-file-system/legacy'; // Importar FileSystem
 import { supabase } from "../../../data/services/supabaseClient";
 import { Receta } from "../../models/Receta";
+
+// ❌ Elimina esta línea
+// import { MediaType } from "expo-image-picker"; // Importar MediaType explícitamente
 
 export class RecipesUseCase {
   // Obtener todas las recetas
@@ -110,15 +116,29 @@ export class RecipesUseCase {
   }
 
   // Subir imagen a Supabase Storage
+// Subir imagen a Supabase Storage (versión con FileSystem)
   private async subirImagen(uri: string): Promise<string | null> {
     try {
       // Obtener la extensión del archivo
       const extension = uri.split(".").pop();
+      if (!extension) {
+        throw new Error("No se pudo determinar la extensión del archivo");
+      }
       const nombreArchivo = `${Date.now()}.${extension}`;
 
-      // Convertir la imagen a blob
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      // Leer el archivo como base64
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: 'base64', // ✅ CORREGIDO: Usa 'base64' en lugar de FileSystem.EncodingType.Base64
+      });
+
+      // Crear un blob a partir del base64
+      const byteCharacters = atob(base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: `image/${extension}` });
 
       // Subir a Supabase Storage
       const { data, error } = await supabase.storage
@@ -126,14 +146,12 @@ export class RecipesUseCase {
         .upload(nombreArchivo, blob, {
           contentType: `image/${extension}`,
         });
-
       if (error) throw error;
 
       // Obtener la URL pública
       const { data: urlData } = supabase.storage
         .from("recetas-fotos")
         .getPublicUrl(nombreArchivo);
-
       return urlData.publicUrl;
     } catch (error) {
       console.log("Error al subir imagen:", error);
@@ -147,7 +165,6 @@ export class RecipesUseCase {
       // Pedir permisos
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
-
       if (status !== "granted") {
         alert("Necesitamos permisos para acceder a tus fotos");
         return null;
@@ -155,19 +172,48 @@ export class RecipesUseCase {
 
       // Abrir selector de imágenes
       const resultado = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'], // ✅ CORREGIDO: Usa ['image']
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
       });
 
-      if (!resultado.canceled) {
-        return resultado.assets[0].uri;
+      // Verificar si se canceló y si hay assets
+      if (!resultado.canceled && resultado.assets && resultado.assets.length > 0) {
+        return resultado.assets[0].uri; // ✅ CORREGIDO: Accede a assets[0]
       }
-
       return null;
     } catch (error) {
       console.log("Error al seleccionar imagen:", error);
+      return null;
+    }
+  }
+
+  // NUEVA FUNCIÓN: Tomar una foto con la cámara
+  async tomarFoto(): Promise<string | null> {
+    try {
+      // Pedir permisos para la cámara
+      const cameraPermission = await Camera.requestCameraPermissionsAsync();
+      if (cameraPermission.status !== "granted") {
+        alert("Necesitamos permisos para usar la cámara");
+        return null;
+      }
+
+      // Abrir la aplicación de cámara
+    const resultado = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'], // ✅ CORREGIDO: Usa ['image']
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+      // Verificar si se canceló y si hay assets
+      if (!resultado.canceled && resultado.assets && resultado.assets.length > 0) {
+        return resultado.assets[0].uri; // ✅ CORREGIDO: Accede a assets[0]
+      }
+      return null;
+    } catch (error) {
+      console.log("Error al tomar foto:", error);
       return null;
     }
   }

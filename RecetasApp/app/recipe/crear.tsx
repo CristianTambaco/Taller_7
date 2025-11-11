@@ -23,7 +23,7 @@ import {
 
 export default function CrearRecetaScreen() {
   const { usuario, esChef } = useAuth();
-  const { crear, seleccionarImagen } = useRecipes();
+  const { crear, seleccionarImagen, tomarFoto } = useRecipes(); // Importar tomarFoto
   const router = useRouter();
 
   const [titulo, setTitulo] = useState("");
@@ -44,12 +44,44 @@ export default function CrearRecetaScreen() {
     setIngredientes(ingredientes.filter((_, i) => i !== index));
   };
 
-  const handleSeleccionarImagen = async () => {
-    const uri = await seleccionarImagen();
-    if (uri) {
-      setImagenUri(uri);
-    }
-  };
+
+
+
+
+  // MODIFICADA: handleSeleccionarImagen para elegir entre cámara y galería
+    const handleSeleccionarImagen = async () => {
+        Alert.alert(
+        "Agregar Foto",
+        "¿De dónde deseas obtener la imagen?",
+        [
+            {
+            text: "Cancelar",
+            style: "cancel"
+            },
+            {
+            text: "Galería",
+            onPress: async () => {
+                const uri = await seleccionarImagen();
+                if (uri) {
+                setImagenUri(uri);
+                }
+            }
+            },
+            {
+            text: "Cámara",
+            onPress: async () => {
+                const uri = await tomarFoto();
+                if (uri) {
+                setImagenUri(uri);
+              }
+            }
+          }
+        ]
+      );
+    };
+
+
+
 
   const handleCrear = async () => {
     if (!titulo || !descripcion || ingredientes.length === 0) {

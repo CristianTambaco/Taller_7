@@ -76,6 +76,13 @@ export function useRecipes() {
     return await recipesUseCase.seleccionarImagen();
   };
 
+
+
+  // NUEVO: Agregar la función tomarFoto al hook
+  const tomarFoto = async () => {
+    return await recipesUseCase.tomarFoto();
+  };
+
   return {
     recetas,
     cargando,
@@ -85,5 +92,6 @@ export function useRecipes() {
     actualizar,
     eliminar,
     seleccionarImagen,
+    tomarFoto, // <-- Añadir esta línea
   };
 }
