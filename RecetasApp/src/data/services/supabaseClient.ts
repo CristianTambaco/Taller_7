@@ -16,10 +16,13 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 // Creamos el cliente de Supabase
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    // No usamos AsyncStorage como pidió el profe
+    // No usamos AsyncStorage 
     storage: undefined,
+    // Refrescar token automáticamente cuando expire
     autoRefreshToken: true,
-    persistSession: false,
-    detectSessionInUrl: false,
+    // NO persistir sesión (se pierde al cerrar app)
+    persistSession: true,
+    // NO detectar sesión en URL (para web)
+    detectSessionInUrl: true,
   },
 });
