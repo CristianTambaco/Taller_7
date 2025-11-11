@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image, // <-- Importar Image
   ScrollView,
   StyleSheet,
   Text,
@@ -13,20 +14,25 @@ import {
 import { useAuth } from "../../src/presentation/hooks/useAuth";
 import { useRecipes } from "../../src/presentation/hooks/useRecipes";
 import { globalStyles } from "../../src/styles/globalStyles";
-import { colors, fontSize, spacing } from "../../src/styles/theme";
+import { colors, fontSize, spacing, borderRadius } from "../../src/styles/theme";
 
 export default function EditarRecetaScreen() {
   const { id } = useLocalSearchParams();
   const { usuario } = useAuth();
-  const { recetas, actualizar } = useRecipes();
+  // --- EXTRAER LAS FUNCIONES DE useRecipes DIRECTAMENTE ---
+  const { recetas, actualizar, seleccionarImagen, tomarFoto } = useRecipes();
+  // --- FIN EXTRACCIÓN ---
   const router = useRouter();
-
   const receta = recetas.find((r) => r.id === id);
 
   const [titulo, setTitulo] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [ingrediente, setIngrediente] = useState("");
   const [ingredientes, setIngredientes] = useState<string[]>([]);
+  // --- NUEVO ESTADO PARA IMAGEN ---
+  const [imagenActual, setImagenActual] = useState<string | null>(null); // URL actual
+  const [nuevaImagenUri, setNuevaImagenUri] = useState<string | null>(null); // URI de la nueva imagen
+  // --- FIN NUEVO ESTADO ---
   const [cargando, setCargando] = useState(false);
 
   // Cargar datos de la receta al iniciar
@@ -35,6 +41,7 @@ export default function EditarRecetaScreen() {
       setTitulo(receta.titulo);
       setDescripcion(receta.descripcion);
       setIngredientes(receta.ingredientes);
+      setImagenActual(receta.imagen_url || null); // Establece la imagen actual
     }
   }, [receta]);
 
@@ -46,7 +53,6 @@ export default function EditarRecetaScreen() {
       </View>
     );
   }
-
   if (receta.chef_id !== usuario?.id) {
     return (
       <View style={globalStyles.containerCentered}>
@@ -74,6 +80,39 @@ export default function EditarRecetaScreen() {
     setIngredientes(ingredientes.filter((_, i) => i !== index));
   };
 
+  // --- FUNCIÓN PARA SELECCIONAR NUEVA IMAGEN ---
+  const handleSeleccionarImagen = async () => {
+    Alert.alert(
+      "Cambiar Foto",
+      "¿De dónde deseas obtener la nueva imagen?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel"
+        },
+        {
+          text: "Galería",
+          onPress: async () => {
+            const uri = await seleccionarImagen(); // ✅ Ahora usamos la función extraída
+            if (uri) {
+              setNuevaImagenUri(uri);
+            }
+          }
+        },
+        {
+          text: "Cámara",
+          onPress: async () => {
+            const uri = await tomarFoto(); // ✅ Ahora usamos la función extraída
+            if (uri) {
+              setNuevaImagenUri(uri);
+            }
+          }
+        }
+      ]
+    );
+  };
+  // --- FIN FUNCIÓN ---
+
   const handleGuardar = async () => {
     if (!titulo || !descripcion || ingredientes.length === 0) {
       Alert.alert("Error", "Completa todos los campos");
@@ -81,11 +120,15 @@ export default function EditarRecetaScreen() {
     }
 
     setCargando(true);
+    // Determinar qué imagen enviar
+    const imagenParaActualizar = nuevaImagenUri || (nuevaImagenUri === null ? null : imagenActual); // Si se quitó la imagen, enviar null
+
     const resultado = await actualizar(
       receta.id,
       titulo,
       descripcion,
-      ingredientes
+      ingredientes,
+      imagenParaActualizar // <-- Pasar la imagen al caso de uso
     );
     setCargando(false);
 
@@ -107,14 +150,12 @@ export default function EditarRecetaScreen() {
           </TouchableOpacity>
           <Text style={globalStyles.title}>Editar Receta</Text>
         </View>
-
         <TextInput
           style={globalStyles.input}
           placeholder="Título de la receta"
           value={titulo}
           onChangeText={setTitulo}
         />
-
         <TextInput
           style={[globalStyles.input, globalStyles.inputMultiline]}
           placeholder="Descripción"
@@ -123,7 +164,6 @@ export default function EditarRecetaScreen() {
           multiline
           numberOfLines={4}
         />
-
         <Text style={globalStyles.subtitle}>Ingredientes:</Text>
         <View style={styles.contenedorIngrediente}>
           <TextInput
@@ -144,7 +184,6 @@ export default function EditarRecetaScreen() {
             <Text style={styles.textoAgregar}>+</Text>
           </TouchableOpacity>
         </View>
-
         <View style={styles.listaIngredientes}>
           {ingredientes.map((ing, index) => (
             <View key={index} style={globalStyles.chip}>
@@ -156,9 +195,27 @@ export default function EditarRecetaScreen() {
           ))}
         </View>
 
-        <Text style={styles.notaImagen}>
-          💡 Nota: La imagen no se puede cambiar por ahora
-        </Text>
+        {/* --- MOSTRAR IMAGEN ACTUAL Y PERMITIR CAMBIARLA --- */}
+        {(imagenActual || nuevaImagenUri) && (
+          <Image source={{ uri: nuevaImagenUri || imagenActual! }} style={styles.vistaPrevia} />
+        )}
+        <TouchableOpacity
+          style={[globalStyles.button, globalStyles.buttonSecondary]}
+          onPress={handleSeleccionarImagen}
+        >
+          <Text style={globalStyles.buttonText}>
+            {imagenActual || nuevaImagenUri ? "📷 Cambiar Foto" : "📷 Agregar Foto"}
+          </Text>
+        </TouchableOpacity>
+        {imagenActual && nuevaImagenUri && ( // Mostrar botón para quitar la nueva selección si hay una actual
+          <TouchableOpacity
+            style={[globalStyles.button, globalStyles.buttonDanger, styles.botonQuitarImagen]}
+            onPress={() => setNuevaImagenUri(null)} // Volver a la imagen original
+          >
+            <Text style={globalStyles.buttonText}>🗑️ Quitar Nueva Foto</Text>
+          </TouchableOpacity>
+        )}
+        {/* --- FIN IMAGEN --- */}
 
         <TouchableOpacity
           style={[
@@ -226,11 +283,15 @@ const styles = StyleSheet.create({
     fontSize: fontSize.lg,
     fontWeight: "bold",
   },
-  notaImagen: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    marginBottom: spacing.lg,
-    fontStyle: "italic",
+  vistaPrevia: { // <-- Estilo para la vista previa de la imagen
+    width: "100%",
+    height: 200,
+    borderRadius: borderRadius.md,
+    marginVertical: spacing.md,
+  },
+  botonQuitarImagen: { // <-- Estilo para el botón de quitar imagen
+    marginTop: spacing.sm,
+    padding: spacing.md,
   },
   botonGuardar: {
     padding: spacing.lg,

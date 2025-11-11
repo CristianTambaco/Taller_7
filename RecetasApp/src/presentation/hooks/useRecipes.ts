@@ -46,17 +46,20 @@ export function useRecipes() {
     return resultado;
   };
 
+   // --- MODIFICADO: actualizar ahora acepta imagenUri ---
   const actualizar = async (
     id: string,
     titulo: string,
     descripcion: string,
-    ingredientes: string[]
+    ingredientes: string[],
+    imagenUri?: string | null // <-- Añadir este parámetro
   ) => {
     const resultado = await recipesUseCase.actualizarReceta(
       id,
       titulo,
       descripcion,
-      ingredientes
+      ingredientes,
+      imagenUri // <-- Pasar el parámetro al caso de uso
     );
     if (resultado.success) {
       await cargarRecetas();
